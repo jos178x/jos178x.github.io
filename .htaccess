@@ -1,0 +1,110 @@
+RewriteEngine On
+RewriteBase /
+
+# About clean URL
+RewriteRule ^about/?$ about.php [L]
+RewriteRule ^about\.php$ /about/ [R=301,L]
+
+# Aturan khusus untuk halaman sitemap bersih
+RewriteRule ^sitemap/?$ sitemap-page.php [L]
+RewriteRule ^sitemap-page\.php$ /sitemap/ [R=301,L]
+
+# Allow access to sitemap.php and robots.txt
+<FilesMatch "^(sitemap\.php|robots\.txt)$">
+    Require all granted
+</FilesMatch>
+
+# Block access to format.txt
+<Files "format.txt">
+    Require all denied
+</Files>
+
+# Redirect HTTP to HTTPS
+RewriteCond %{HTTPS} off
+RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+# Remove www from hostname
+RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+RewriteRule ^(.*)$ https://%1%{REQUEST_URI} [L,R=301]
+
+# Remove ?category= from homepage URL
+RewriteCond %{QUERY_STRING} ^category=([^&]+)$ [NC]
+RewriteRule ^$ /? [R=301,L]
+
+# Redirect detail.php to index.php
+RewriteRule ^detail\.php$ index.php [L,R=301,NC]
+
+# Map /judul-artikel-01012025/ to detail.php?slug=judul-artikel&date=01012025
+RewriteRule ^([a-z0-9-]+)-([0-9]{8})/$ detail.php?slug=$1&date=$2 [L,NC]
+
+# Add trailing slash to URLs without it
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^([a-z0-9-]+)-([0-9]{8})$ $1-$2/ [R=301,L,NC]
+
+# Redirect all 404 errors to index.php
+ErrorDocument 404 /index.php
+
+# Block access to sensitive files
+<FilesMatch "\.(htaccess|htpasswd|ini|log|conf|bak|backup|sql|mdb)$">
+    Require all denied
+</FilesMatch>
+
+# Block access to potentially dangerous files
+<FilesMatch "\.(php2|php3|php4|php5|phtml|php7|phps|asp|aspx|cgi|pl|py|sh|exe|dll|bat|cmd|zip|rar|7z|tar|gz|bz2|sql|bak|backup|swp|mdb)$">
+    Require all denied
+</FilesMatch>
+
+# Allow access to JavaScript and CSS in assets directory
+<FilesMatch "^/assets/(js|css)/.*\.(js|css)$">
+    Require all granted
+</FilesMatch>
+
+# Disable script execution in uploads directory
+<Directory "/var/www/html/uploads">
+    php_flag engine off
+    AddHandler text/plain .php .php2 .php3 .php4 .php5 .php7 .phtml .phps .asp .aspx .cgi .pl .py .sh
+    Options -ExecCGI
+    RemoveHandler .php .php2 .php3 .php4 .php5 .php7 .phtml .phps .asp .aspx .cgi .pl .py .sh
+    Require all granted
+</Directory>
+
+# Protect JSON files from external access but allow internal script access
+<FilesMatch "\.(json)$">
+    Require all denied
+</FilesMatch>
+
+# Prevent cloaking and malicious access
+<IfModule mod_rewrite.c>
+    # Block suspicious user-agents (exclude legitimate bots)
+    RewriteCond %{HTTP_USER_AGENT} (libwww-perl|curl|wget|fake|malicious|spider|scraper|badbot) [NC]
+    RewriteCond %{HTTP_USER_AGENT} !(Googlebot|bingbot|Slurp|DuckDuckBot|Baiduspider|YandexBot) [NC]
+    RewriteRule ^(.*)$ - [F,L]
+   
+    # Block dangerous query strings
+    RewriteCond %{QUERY_STRING} (base64_encode|eval|system|exec|shell_exec|passthru|phpinfo|\.\./|%2E%2E%2F|%3Cscript|iframe|document\.write) [NC]
+    RewriteRule ^(.*)$ - [F,L]
+   
+    # Block access to dangerous files via URL
+    RewriteCond %{REQUEST_URI} \.(php2|php3|php4|php5|phtml|php7|phps|asp|aspx|cgi|pl|py|sh|exe|dll|bat|cmd|zip|rar|7z|tar|gz|bz2|json)$ [NC]
+    RewriteRule ^(.*)$ - [F,L]
+   
+    # Block AMP URLs if not needed
+    RewriteCond %{REQUEST_URI} /amp/ [NC]
+    RewriteRule ^(.*)$ - [F,L]
+</IfModule>
+
+# Prevent upload of dangerous files
+<IfModule mod_rewrite.c>
+    RewriteCond %{REQUEST_METHOD} ^(PUT|POST) [NC]
+    RewriteCond %{REQUEST_URI} \.(php2|php3|php4|php5|phtml|php7|phps|asp|aspx|cgi|pl|py|sh|exe|dll|bat|cmd|zip|rar|7z|tar|gz|bz2|json)$ [NC]
+    RewriteRule ^(.*)$ - [F,L]
+</IfModule>
+
+# Restrict HTTP methods
+<LimitExcept GET POST HEAD>
+    Require all denied
+</LimitExcept>
+
+# Disable directory listing
+Options -Indexes
